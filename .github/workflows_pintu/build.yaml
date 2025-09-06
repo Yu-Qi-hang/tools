@@ -22,17 +22,17 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pillow pyinstaller reportlab
+        pip install pillow pyinstaller
         
     - name: Build executable
       run: |
-        pyinstaller --windowed --onefile --name "pic2pdf" --icon=NONE pic2pdf.py
+        pyinstaller --windowed --onefile --name "picboard" --icon=NONE pintu.py
         
     - name: Verify build
       run: |
-        if (Test-Path "dist/pic2pdf.exe") {
+        if (Test-Path "dist/picboard.exe") {
           echo "Build successful"
-          dir "dist/pic2pdf.exe"
+          dir "dist/picboard.exe"
         } else {
           echo "Build failed"
           exit 1
@@ -41,6 +41,6 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: pic2pdf-windows
-        path: dist/pic2pdf.exe
+        name: picboard-windows
+        path: dist/picboard.exe
         if-no-files-found: error
