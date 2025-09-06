@@ -26,13 +26,13 @@ jobs:
         
     - name: Build executable
       run: |
-        pyinstaller --windowed --onefile --name "拼图生成器" --icon=NONE pintu.py
+        pyinstaller --windowed --onefile --name "picboard" --icon=NONE pintu.py
         
     - name: Verify build
       run: |
-        if (Test-Path "dist/拼图生成器.exe") {
+        if (Test-Path "dist/picboard.exe") {
           echo "Build successful"
-          dir "dist/拼图生成器.exe"
+          dir "dist/picboard.exe"
         } else {
           echo "Build failed"
           exit 1
@@ -41,6 +41,6 @@ jobs:
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: 拼图生成器-windows
-        path: dist/拼图生成器.exe
+        name: picboard-windows
+        path: dist/picboard.exe
         if-no-files-found: error
