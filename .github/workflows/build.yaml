@@ -5,16 +5,17 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: windows-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
         
@@ -25,10 +26,21 @@ jobs:
         
     - name: Build executable
       run: |
-        pyinstaller --windowed --onefile --name 拼图生成器 pintu.py
+        pyinstaller --windowed --onefile --name "拼图生成器" --icon=NONE pintu.py
+        
+    - name: Verify build
+      run: |
+        if (Test-Path "dist/拼图生成器.exe") {
+          echo "Build successful"
+          dir "dist/拼图生成器.exe"
+        } else {
+          echo "Build failed"
+          exit 1
+        }
         
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: 拼图生成器-windows
         path: dist/拼图生成器.exe
+        if-no-files-found: error
