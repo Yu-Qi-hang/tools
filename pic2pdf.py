@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import math
 from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 import io
 
@@ -175,42 +175,41 @@ class ImageToPDFConverter:
             self.image_count_label.config(text="未找到图片文件")
             self.convert_button.config(state="disabled")
     
-    def resize_and_orient_image_to_a4(self, img):
-        """将图片调整为适合A4纸的尺寸，并根据宽高比选择最佳方向"""
+    def resize_image_for_a4_portrait(self, img):
+        """
+        将图片调整为适合纵向A4纸的尺寸
+        返回调整后的图片和是否需要旋转的标志
+        """
         # A4尺寸 (宽, 高) in points (1 point = 1/72 inch)
-        a4_portrait = A4  # (595.276, 841.890)
-        a4_landscape = landscape(A4)  # (841.890, 595.276)
+        a4_width, a4_height = A4  # (595.276, 841.890)
         
         # 获取原始图片尺寸
         img_width, img_height = img.size
         
-        # 判断图片是横向还是纵向
-        img_is_landscape = img_width > img_height
-        img_ratio = img_width / img_height
+        # 计算两种方案的缩放比例：
+        # 方案1：直接放置在纵向A4上
+        direct_width_ratio = a4_width / img_width
+        direct_height_ratio = a4_height / img_height
+        direct_scale_ratio = min(direct_width_ratio, direct_height_ratio)
         
-        # 计算在纵向A4上的缩放比例
-        portrait_width_ratio = a4_portrait[0] / img_width
-        portrait_height_ratio = a4_portrait[1] / img_height
-        portrait_scale_ratio = min(portrait_width_ratio, portrait_height_ratio)
-        
-        # 计算在横向A4上的缩放比例
-        landscape_width_ratio = a4_landscape[0] / img_width
-        landscape_height_ratio = a4_landscape[1] / img_height
-        landscape_scale_ratio = min(landscape_width_ratio, landscape_height_ratio)
+        # 方案2：旋转90度后放置在纵向A4上
+        rotated_width_ratio = a4_width / img_height
+        rotated_height_ratio = a4_height / img_width
+        rotated_scale_ratio = min(rotated_width_ratio, rotated_height_ratio)
         
         # 选择能获得更大图片的方案
-        use_landscape = landscape_scale_ratio > portrait_scale_ratio
-        
-        if use_landscape:
-            # 使用横向A4
-            target_size = a4_landscape
-            scale_ratio = landscape_scale_ratio
-            is_landscape_page = True
+        if rotated_scale_ratio > direct_scale_ratio:
+            # 旋转图片
+            should_rotate = True
+            scale_ratio = rotated_scale_ratio
+            # 旋转图片90度
+            img = img.rotate(90, expand=True)
+            # 更新尺寸
+            img_width, img_height = img_height, img_width
         else:
-            # 使用纵向A4
-            target_size = a4_portrait
-            scale_ratio = portrait_scale_ratio
-            is_landscape_page = False
+            # 不旋转图片
+            should_rotate = False
+            scale_ratio = direct_scale_ratio
         
         # 如果图片比A4小，则不放大
         if scale_ratio > 1:
@@ -223,10 +222,10 @@ class ImageToPDFConverter:
         # 调整图片尺寸
         resized_img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
-        return resized_img, is_landscape_page
+        return resized_img, should_rotate
     
     def convert_to_pdf(self):
-        """将图片转换为PDF"""
+        """将图片转换为PDF，所有页面都是纵向A4"""
         # 验证输入
         if not self.image_folder.get():
             messagebox.showerror("错误", "请选择图片文件夹")
@@ -248,12 +247,10 @@ class ImageToPDFConverter:
                 return
         
         try:
-            # 创建PDF文件
+            # 创建PDF文件，所有页面都是纵向A4
             output_path = self.output_file.get()
-            # 先创建一个默认的纵向PDF
             c = canvas.Canvas(output_path, pagesize=A4)
-            a4_portrait = A4
-            a4_landscape = landscape(A4)
+            a4_width, a4_height = A4
             
             # 处理每张图片
             for i, img_path in enumerate(self.image_paths):
@@ -269,21 +266,16 @@ class ImageToPDFConverter:
                             rgb_img.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
                             img = rgb_img
                         
-                        # 调整图片尺寸并选择最佳方向
-                        resized_img, is_landscape_page = self.resize_and_orient_image_to_a4(img)
+                        # 调整图片尺寸以适应纵向A4，并决定是否旋转
+                        resized_img, was_rotated = self.resize_image_for_a4_portrait(img)
                         
-                        # 设置页面方向
-                        if is_landscape_page:
-                            c.setPageSize(a4_landscape)
-                            page_width, page_height = a4_landscape
-                        else:
-                            c.setPageSize(a4_portrait)
-                            page_width, page_height = a4_portrait
+                        # 确保页面是纵向A4（可能前面的页面改变了页面尺寸）
+                        c.setPageSize(A4)
                         
                         # 计算居中位置
                         img_width, img_height = resized_img.size
-                        x = (page_width - img_width) / 2
-                        y = (page_height - img_height) / 2
+                        x = (a4_width - img_width) / 2
+                        y = (a4_height - img_height) / 2
                         
                         # 将PIL图片转换为BytesIO
                         img_buffer = io.BytesIO()
@@ -306,7 +298,7 @@ class ImageToPDFConverter:
             # 保存PDF
             c.save()
             
-            messagebox.showinfo("成功", f"PDF文件已保存到: {output_path}")
+            messagebox.showinfo("成功", f"PDF文件已保存到: {output_path}\n所有页面均为纵向A4格式")
             
         except Exception as e:
             messagebox.showerror("错误", f"转换PDF时出错: {str(e)}")
